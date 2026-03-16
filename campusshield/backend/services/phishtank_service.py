@@ -5,10 +5,6 @@ import requests
 PHISHTANK_URL = "https://checkurl.phishtank.com/checkurl/"
 
 def check_phishtank(url: str) -> dict:
-    """
-    Checks a URL against the PhishTank phishing database.
-    Returns score 100 if listed, 0 if clean, 0 if check fails.
-    """
     try:
         response = requests.post(
             PHISHTANK_URL,
@@ -17,34 +13,31 @@ def check_phishtank(url: str) -> dict:
             timeout=5
         )
 
+        # Guard against empty or non-JSON response
+        if not response.content or not response.text.strip():
+            raise ValueError("Empty response")
+
         data = response.json()
         results = data.get("results", {})
 
-        in_database = results.get("in_database", False)
-        is_valid    = results.get("valid", False)
-
-        if in_database and is_valid:
+        if results.get("in_database") and results.get("valid"):
             return {
                 "score": 100,
                 "detail": "URL is listed in PhishTank as a confirmed phishing site",
-                "listed": True
+                "listed": True,
+                "available": True
             }
-        else:
-            return {
-                "score": 0,
-                "detail": "URL not found in PhishTank database",
-                "listed": False
-            }
-
-    except requests.Timeout:
         return {
             "score": 0,
-            "detail": "PhishTank check timed out — skipped",
-            "listed": None
+            "detail": "URL not found in PhishTank database",
+            "listed": False,
+            "available": True
         }
-    except Exception as e:
+
+    except Exception:
         return {
             "score": 0,
-            "detail": f"PhishTank check failed: {str(e)}",
-            "listed": None
+            "detail": "PhishTank check unavailable — skipped",
+            "listed": False,
+            "available": False
         }

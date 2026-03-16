@@ -24,12 +24,13 @@ PHISHING_KEYWORDS = [
     "free", "claim", "refund", "payment", "pay"
 ]
 
-
 def check_typosquatting(domain: str) -> dict:
     """
     Compares domain against known legitimate domains using Levenshtein distance.
-    Returns the closest match and a risk score.
+    Uses strict 3-condition validation to prevent false positives.
     """
+    from utils.domain_utils import is_valid_typosquat_match
+
     base = extract_domain_base(domain)
 
     closest_match = None
@@ -44,6 +45,7 @@ def check_typosquatting(domain: str) -> dict:
             closest_match = known_base
             closest_full_domain = known
 
+    # Exact match — this is the real domain
     if min_dist == 0:
         return {
             "score": 0,
@@ -51,29 +53,27 @@ def check_typosquatting(domain: str) -> dict:
             "matched_domain": closest_full_domain,
             "distance": min_dist
         }
-    elif min_dist <= 3:
+
+    # Strict 3-condition validation
+    if is_valid_typosquat_match(domain, closest_full_domain, min_dist):
         return {
             "score": 95,
             "detail": f"Very close to {closest_full_domain} (distance {min_dist}) — likely typosquatting",
             "matched_domain": closest_full_domain,
             "distance": min_dist
         }
-    elif min_dist <= 5:
-        return {
-            "score": 70,
-            "detail": f"Similar to {closest_full_domain} (distance {min_dist}) — possible typosquatting",
-            "matched_domain": closest_full_domain,
-            "distance": min_dist
-        }
-    else:
-        return {
-            "score": 10,
-            "detail": "No close match to known domains found",
-            "matched_domain": None,
-            "distance": min_dist
-        }
+
+    # No valid typosquatting match found
+    return {
+        "score": 0,
+        "detail": "No typosquatting detected",
+        "matched_domain": None,
+        "distance": min_dist
+    }
+  
 
 
+   
 def check_keywords(url: str) -> dict:
     """
     Scans the full URL for phishing-related keywords.
@@ -119,11 +119,19 @@ def analyze_url(url: str) -> dict:
     keyword_result = check_keywords(url)
 
     # Step 5 — Combine scores
-    final_score = combine_url_scores(
-        whois_score      = whois_result["score"],
-        typosquat_score  = typo_result["score"],
-        phishtank_score  = phishtank_result["score"],
-        keyword_score    = keyword_result["score"]
+    if not phishtank_result.get("available", True):
+        final_score = round(min(
+            whois_result["score"]   * 0.35 +
+            typo_result["score"]    * 0.45 +
+            keyword_result["score"] * 0.20,
+            100
+    ))
+    else:
+        final_score = combine_url_scores(
+            whois_score     = whois_result["score"],
+            typosquat_score = typo_result["score"],
+            phishtank_score = phishtank_result["score"],
+            keyword_score   = keyword_result["score"]
     )
 
     return {
@@ -158,6 +166,7 @@ def analyze_url(url: str) -> dict:
                 "score": phishtank_result["score"],
                 "detail": phishtank_result["detail"],
                 "listed": phishtank_result["listed"],
+                "available": phishtank_result.get("available", True),
             },
             "keywords": {
                 "name": "Keyword Scan",
