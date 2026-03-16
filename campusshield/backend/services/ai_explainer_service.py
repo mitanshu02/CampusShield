@@ -26,26 +26,52 @@ Generate a response in this exact JSON format with no extra text, no markdown, n
 }}"""
 
 
+# def call_gemini(signals: dict) -> dict | None:
+#     """Primary explainer — Gemini 1.5 Flash."""
+#     try:
+#         model    = genai.GenerativeModel("gemini-1.5-flash")
+#         response = model.generate_content(build_prompt(signals))
+#         text     = response.text.strip()
+
+#         # Strip markdown code fences if Gemini adds them
+#         text = text.replace("```json", "").replace("```", "").strip()
+#         return json.loads(text)
+#     except Exception as e:
+#         print(f"Gemini failed: {e}")
+#         return None
+
+
+# def call_groq(signals: dict) -> dict | None:
+#     """Fallback explainer — Groq Llama 3.1 70B."""
+#     try:
+#         response = groq_client.chat.completions.create(
+#             model="llama-3.1-70b-versatile",
+#             messages=[{"role": "user", "content": build_prompt(signals)}],
+#             max_tokens=400,
+#             temperature=0.3,
+#         )
+#         text = response.choices[0].message.content.strip()
+#         text = text.replace("```json", "").replace("```", "").strip()
+#         return json.loads(text)
+#     except Exception as e:
+#         print(f"Groq failed: {e}")
+#         return None
 def call_gemini(signals: dict) -> dict | None:
-    """Primary explainer — Gemini 1.5 Flash."""
     try:
-        model    = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-2.0-flash-lite")       
         response = model.generate_content(build_prompt(signals))
         text     = response.text.strip()
-
-        # Strip markdown code fences if Gemini adds them
         text = text.replace("```json", "").replace("```", "").strip()
         return json.loads(text)
     except Exception as e:
-        print(f"Gemini failed: {e}")
+        print(f"Gemini failed: {e}")  # already there
         return None
 
 
 def call_groq(signals: dict) -> dict | None:
-    """Fallback explainer — Groq Llama 3.1 70B."""
     try:
         response = groq_client.chat.completions.create(
-            model="llama-3.1-70b-versatile",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": build_prompt(signals)}],
             max_tokens=400,
             temperature=0.3,
@@ -54,22 +80,24 @@ def call_groq(signals: dict) -> dict | None:
         text = text.replace("```json", "").replace("```", "").strip()
         return json.loads(text)
     except Exception as e:
-        print(f"Groq failed: {e}")
+        print(f"Groq failed: {e}")  # already there
         return None
-
-
 def generate_explanation(signals: dict) -> dict:
     """
-    Tries Gemini first, falls back to Groq, then returns static fallback.
-    Always returns a valid dict — never crashes.
+    Tries Groq first (faster, higher limits), falls back to Gemini, 
+    then static fallback. Never crashes.
     """
-    result = call_gemini(signals)
-    if result:
-        return result
-
     result = call_groq(signals)
     if result:
         return result
 
-    # Static fallback — app never crashes during demo
+    result = call_gemini(signals)
+    if result:
+        return result
+
     return FALLBACK_RESPONSE
+
+def list_gemini_models():
+    for m in genai.list_models():
+        if "generateContent" in m.supported_generation_methods:
+            print(m.name)

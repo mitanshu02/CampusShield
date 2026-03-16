@@ -3,19 +3,24 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from analyzers.url_analyzer import analyze_url
+from services.ai_explainer_service import generate_explanation
 
 router = APIRouter()
 
-# This defines what the request body must look like
 class URLRequest(BaseModel):
     url: str
 
 @router.post("/analyze-url")
 def analyze_url_endpoint(body: URLRequest):
-    """
-    Receives a URL from the frontend and returns full risk analysis.
-    
-    Request body:  { "url": "https://fees-nitbhopal-edu.in/pay" }
-    Response:      { final_score, risk_label, signals, ... }
-    """
-    return analyze_url(body.url)
+    # Step 1 — run all 4 signal checks
+    result = analyze_url(body.url)
+
+    # Step 2 — pass signals to Gemini for plain-English explanation
+    explanation = generate_explanation(result["signals"])
+
+    # Step 3 — add 3 new fields to response, all existing fields unchanged
+    result["explanation"]           = explanation.get("explanation")
+    result["impersonation_statement"] = explanation.get("impersonation_statement")
+    result["attack_type"]           = explanation.get("attack_type")
+
+    return result
