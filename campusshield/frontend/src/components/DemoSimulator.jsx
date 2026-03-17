@@ -9,11 +9,11 @@ const SCENARIOS = [
     description: "Typosquatted college fee portal registered 2 days ago",
   },
   {
-    label: "UPI collect fraud",
-    badge: "HIGH RISK",
-    badgeColor: "red",
-    url: "https://phonepay-refund.in/collect",
-    description: "Fake PhonePe refund page harvesting UPI PIN",
+  label: "UPI collect fraud",
+  badge: "HIGH RISK",
+  badgeColor: "red",
+  url: "http://localhost:8080/fake_college_page.html",
+  description: "Fake payment portal harvesting UPI PIN — live demo page",
   },
   {
     label: "Fake scholarship",
