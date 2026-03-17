@@ -18,6 +18,7 @@ if sys.platform == "win32":
 
 from fastapi import FastAPI
 
+
 from routes.url_routes import router as url_router
 
 try:
